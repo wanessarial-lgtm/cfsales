@@ -519,6 +519,14 @@ export function compileCustomMaterialHtml(content: CustomMaterialContent): strin
   const accentRgb = accentRgbMap[content.accentColor] || "0,172,105";
   const date = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
+  const logoHtml = content.logoBase64
+    ? `<div class="cover-logo"><img src="${content.logoBase64}" alt="Logo ${content.clientName}" /></div>`
+    : "";
+
+  const customStyleBlock = content.customCss?.trim()
+    ? `<style id="custom-overrides">\n${content.customCss}\n</style>`
+    : "";
+
   const sectionsHtml = content.sections.map((sec, i) => `
     <div class="sec reveal" style="--i:${i}">
       <div class="sec-accent"></div>
@@ -605,20 +613,31 @@ body{font-family:'Sora',sans-serif;background:var(--surface);color:var(--ink);mi
 .reveal.in{opacity:1;transform:none}
 @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}.blob,.cover-eyebrow-dot{animation:none}}
 
+/* ── LOGO ── */
+.cover-logo{margin-bottom:24px}
+.cover-logo img{height:40px;width:auto;object-fit:contain;filter:brightness(0) invert(1);opacity:.85}
+
+/* ── CUSTOM EFFECT CONTAINER ── */
+#cover-effect-container{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1}
+#effect-canvas{position:absolute;inset:0;width:100%;height:100%}
+
 @media(max-width:600px){.cover{min-height:60vh}.sec{padding:28px 24px}.sec-h{font-size:16px}}
 </style>
+${customStyleBlock}
 </head>
 <body>
 
 <!-- COVER -->
 <div class="cover" id="cover">
   <canvas id="sparkles"></canvas>
+  <div id="cover-effect-container"><canvas id="effect-canvas"></canvas></div>
   <div class="blobs" aria-hidden="true">
     <div class="blob blob-1"></div>
     <div class="blob blob-2"></div>
     <div class="blob blob-3"></div>
   </div>
   <div class="cover-inner">
+    ${logoHtml}
     <div class="cover-eyebrow"><span class="cover-eyebrow-dot"></span>Material Personalizado · Checklist Fácil</div>
     <div class="cover-to">Preparado exclusivamente para <strong style="color:rgba(255,255,255,.8)">${content.clientName}</strong></div>
     <h1 class="cover-h">${content.documentTitle}</h1>
