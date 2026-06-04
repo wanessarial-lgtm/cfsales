@@ -514,16 +514,22 @@ window.addEventListener('load',()=>{const bar=document.querySelector('.roi-fill'
 
 export function compileCustomMaterialHtml(content: CustomMaterialContent): string {
   const accentMap = { verde: "#00AC69", azul: "#469DE2", laranja: "#FF7133" };
+  const accentRgbMap = { verde: "0,172,105", azul: "70,157,226", laranja: "255,113,51" };
   const accent = accentMap[content.accentColor] || "#00AC69";
+  const accentRgb = accentRgbMap[content.accentColor] || "0,172,105";
   const date = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
   const sectionsHtml = content.sections.map((sec, i) => `
-    <div class="section">
-      <div class="sec-num">${String(i + 1).padStart(2, "0")}</div>
-      <div class="sec-body">
-        <h2 class="sec-h">${sec.heading}</h2>
+    <div class="sec reveal" style="--i:${i}">
+      <div class="sec-accent"></div>
+      <div class="sec-inner">
+        <div class="sec-header">
+          <span class="sec-num">${String(i + 1).padStart(2, "0")}</span>
+          <h2 class="sec-h">${sec.heading}</h2>
+        </div>
         <div class="sec-text">${sec.body.replace(/\n/g, "<br>")}</div>
       </div>
+      <div class="sec-watermark">${String(i + 1).padStart(2, "0")}</div>
     </div>`).join("");
 
   return `<!DOCTYPE html>
@@ -534,47 +540,159 @@ export function compileCustomMaterialHtml(content: CustomMaterialContent): strin
 <link href="https://fonts.googleapis.com/css2?family=Sora:wght@300;400;600;700&display=swap" rel="stylesheet">
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-:root{--a:${accent};--gdk:#184B44;--ink:#1E2235;--muted:#5A6073;--surface:#F1F2F7;--white:#fff;--border:rgba(24,75,68,.1)}
-body{font-family:'Sora',sans-serif;background:var(--surface);color:var(--ink);padding:40px clamp(16px,5vw,60px)}
-.doc{max-width:820px;margin:0 auto}
-.cover{background:linear-gradient(135deg,#0D1117 0%,#1a2a24 100%);border-radius:20px 20px 20px 4px;padding:56px 48px;margin-bottom:28px;position:relative;overflow:hidden}
-.cover-bg{position:absolute;inset:0;background-image:linear-gradient(rgba(${accent === "#00AC69" ? "0,172,105" : accent === "#469DE2" ? "70,157,226" : "255,113,51"},.05) 1px,transparent 1px),linear-gradient(90deg,rgba(${accent === "#00AC69" ? "0,172,105" : accent === "#469DE2" ? "70,157,226" : "255,113,51"},.05) 1px,transparent 1px);background-size:40px 40px}
-.cover-inner{position:relative;z-index:1}
-.cover-tag{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:${accent};margin-bottom:10px}
-.cover-to{font-size:12px;color:rgba(255,255,255,.45);font-weight:300;margin-bottom:32px}
-.cover-h{font-size:clamp(24px,4vw,42px);font-weight:700;color:white;line-height:1.12;letter-spacing:-.02em;margin-bottom:12px}
-.cover-sub{font-size:16px;color:rgba(255,255,255,.6);font-weight:300;line-height:1.6}
-.cover-meta{margin-top:36px;display:flex;gap:20px;flex-wrap:wrap}
-.cover-meta-item{font-size:11px;color:rgba(255,255,255,.4);font-weight:400;display:flex;align-items:center;gap:6px}
-.cover-dot{width:5px;height:5px;border-radius:50%;background:${accent};flex-shrink:0}
-.section{background:var(--white);border:1px solid var(--border);border-radius:16px 16px 16px 4px;padding:32px 36px;margin-bottom:18px;display:flex;gap:28px;align-items:flex-start}
-.sec-num{font-size:32px;font-weight:700;color:${accent};opacity:.25;flex-shrink:0;line-height:1;min-width:36px}
-.sec-body{flex:1}
-.sec-h{font-size:18px;font-weight:600;color:var(--gdk);margin-bottom:12px}
-.sec-text{font-size:14px;color:var(--muted);font-weight:300;line-height:1.75}
-footer{text-align:center;margin-top:28px;font-size:11px;color:var(--muted);padding:16px 0;border-top:1px solid var(--border)}
-@media(max-width:540px){.section{flex-direction:column;gap:8px}.sec-num{font-size:22px}}
+:root{--a:${accent};--ar:${accentRgb};--gdk:#184B44;--ink:#1E2235;--muted:#5A6073;--surface:#F0F2F7;--white:#fff;--border:rgba(24,75,68,.09)}
+html{scroll-behavior:smooth}
+body{font-family:'Sora',sans-serif;background:var(--surface);color:var(--ink);min-height:100vh}
+
+/* ── COVER ── */
+.cover{position:relative;min-height:72vh;background:#080C10;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:clamp(40px,7vw,80px) clamp(24px,6vw,72px)}
+
+/* Canvas sparkles */
+#sparkles{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+
+/* Gradient blobs */
+.blobs{position:absolute;inset:0;overflow:hidden;filter:blur(72px);z-index:0;pointer-events:none}
+.blob{position:absolute;border-radius:50%;opacity:.28}
+.blob-1{width:clamp(300px,45vw,600px);height:clamp(300px,45vw,600px);background:${accent};top:-15%;right:-10%;animation:b1 18s ease-in-out infinite}
+.blob-2{width:clamp(200px,30vw,420px);height:clamp(200px,30vw,420px);background:#469DE2;bottom:-10%;left:5%;animation:b2 22s ease-in-out infinite}
+.blob-3{width:clamp(150px,20vw,300px);height:clamp(150px,20vw,300px);background:${accent};top:30%;left:40%;animation:b3 15s ease-in-out infinite;opacity:.15}
+
+@keyframes b1{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(-60px,40px) scale(1.08)}50%{transform:translate(40px,-50px) scale(.94)}75%{transform:translate(70px,30px) scale(1.04)}}
+@keyframes b2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(80px,-60px) scale(1.1)}66%{transform:translate(-50px,40px) scale(.9)}}
+@keyframes b3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-80px,60px) scale(1.15)}}
+
+/* Noise overlay */
+.cover::after{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");opacity:.4;z-index:1;pointer-events:none}
+
+.cover-inner{position:relative;z-index:2;max-width:800px}
+.cover-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(${accentRgb},.12);border:1px solid rgba(${accentRgb},.3);color:${accent};font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:7px 16px;border-radius:999px;margin-bottom:28px}
+.cover-eyebrow-dot{width:5px;height:5px;border-radius:50%;background:${accent};animation:pulse 2s ease-in-out infinite}
+@keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
+.cover-to{font-size:12px;color:rgba(255,255,255,.4);font-weight:300;margin-bottom:16px;letter-spacing:.02em}
+.cover-h{font-size:clamp(28px,5vw,56px);font-weight:700;color:#fff;line-height:1.08;letter-spacing:-.025em;margin-bottom:14px}
+.cover-h .hl{color:${accent}}
+.cover-sub{font-size:clamp(14px,1.6vw,18px);color:rgba(255,255,255,.55);font-weight:300;line-height:1.65;max-width:580px;margin-bottom:36px}
+.cover-meta{display:flex;gap:20px;flex-wrap:wrap}
+.cover-meta-item{font-size:11px;color:rgba(255,255,255,.35);font-weight:400;display:flex;align-items:center;gap:6px}
+.cover-meta-dot{width:4px;height:4px;border-radius:50%;background:${accent};opacity:.7;flex-shrink:0}
+
+/* Scroll hint */
+.scroll-hint{margin-top:48px;display:flex;align-items:center;gap:10px;color:rgba(255,255,255,.2);font-size:10px;letter-spacing:.12em;text-transform:uppercase}
+.scroll-line{width:32px;height:1px;background:rgba(255,255,255,.2)}
+
+/* ── CONTENT ── */
+.content{max-width:900px;margin:0 auto;padding:clamp(40px,6vw,72px) clamp(24px,5vw,60px)}
+
+/* ── SECTION CARDS ── */
+.sec{position:relative;background:var(--white);border:1px solid var(--border);border-radius:20px 20px 20px 4px;padding:36px 40px;margin-bottom:20px;overflow:hidden;transition:transform .25s cubic-bezier(.16,1,.3,1),box-shadow .25s ease}
+.sec:hover{transform:translateY(-3px);box-shadow:0 16px 48px rgba(${accentRgb},.1)}
+.sec-accent{position:absolute;top:0;left:0;width:4px;height:100%;background:linear-gradient(180deg,${accent} 0%,rgba(${accentRgb},.2) 100%);border-radius:4px 0 0 2px}
+.sec-inner{position:relative;z-index:1}
+.sec-header{display:flex;align-items:baseline;gap:14px;margin-bottom:16px}
+.sec-num{font-size:11px;font-weight:700;letter-spacing:.12em;color:${accent};background:rgba(${accentRgb},.08);border:1px solid rgba(${accentRgb},.18);padding:4px 10px;border-radius:999px;white-space:nowrap;flex-shrink:0}
+.sec-h{font-size:clamp(16px,2vw,20px);font-weight:600;color:var(--gdk);line-height:1.3;letter-spacing:-.01em}
+.sec-text{font-size:14px;color:var(--muted);font-weight:300;line-height:1.8}
+.sec-watermark{position:absolute;right:-8px;bottom:-16px;font-size:96px;font-weight:700;color:rgba(${accentRgb},.04);line-height:1;pointer-events:none;user-select:none;z-index:0}
+
+/* ── FOOTER ── */
+.doc-footer{text-align:center;padding:clamp(24px,4vw,48px) 0;margin:0 clamp(24px,5vw,60px)}
+.doc-footer-line{width:100%;height:1px;background:linear-gradient(90deg,transparent 0%,var(--border) 20%,var(--border) 80%,transparent 100%);margin-bottom:20px}
+.doc-footer-text{font-size:11px;color:#9299B0;font-weight:300;letter-spacing:.03em}
+.doc-footer-brand{color:${accent};font-weight:600}
+
+/* ── REVEAL ANIMATION ── */
+.reveal{opacity:0;transform:translateY(22px);transition:opacity .65s cubic-bezier(.16,1,.3,1),transform .65s cubic-bezier(.16,1,.3,1);transition-delay:calc(var(--i,0)*80ms)}
+.reveal.in{opacity:1;transform:none}
+@media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}.blob,.cover-eyebrow-dot{animation:none}}
+
+@media(max-width:600px){.cover{min-height:60vh}.sec{padding:28px 24px}.sec-h{font-size:16px}}
 </style>
 </head>
 <body>
-<div class="doc">
-  <div class="cover">
-    <div class="cover-bg"></div>
-    <div class="cover-inner">
-      <div class="cover-tag">Material Personalizado · Checklist Fácil</div>
-      <div class="cover-to">Preparado para: <strong style="color:rgba(255,255,255,.75)">${content.clientName}</strong></div>
-      <h1 class="cover-h">${content.documentTitle}</h1>
-      <p class="cover-sub">${content.documentSubtitle}</p>
-      <div class="cover-meta">
-        <span class="cover-meta-item"><span class="cover-dot"></span>${date}</span>
-        <span class="cover-meta-item"><span class="cover-dot"></span>${content.sections.length} tópicos</span>
-        <span class="cover-meta-item"><span class="cover-dot"></span>Documento confidencial</span>
-      </div>
-    </div>
+
+<!-- COVER -->
+<div class="cover" id="cover">
+  <canvas id="sparkles"></canvas>
+  <div class="blobs" aria-hidden="true">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
   </div>
-  ${sectionsHtml}
-  <footer>Checklist Fácil · Líder em Checklists na América Latina · checklistfacil.com.br</footer>
+  <div class="cover-inner">
+    <div class="cover-eyebrow"><span class="cover-eyebrow-dot"></span>Material Personalizado · Checklist Fácil</div>
+    <div class="cover-to">Preparado exclusivamente para <strong style="color:rgba(255,255,255,.8)">${content.clientName}</strong></div>
+    <h1 class="cover-h">${content.documentTitle}</h1>
+    <p class="cover-sub">${content.documentSubtitle}</p>
+    <div class="cover-meta">
+      <span class="cover-meta-item"><span class="cover-meta-dot"></span>${date}</span>
+      <span class="cover-meta-item"><span class="cover-meta-dot"></span>${content.sections.length} ${content.sections.length === 1 ? "tópico" : "tópicos"}</span>
+      <span class="cover-meta-item"><span class="cover-meta-dot"></span>Documento confidencial</span>
+    </div>
+    <div class="scroll-hint"><span class="scroll-line"></span>Role para ver o conteúdo</div>
+  </div>
 </div>
+
+<!-- SECTIONS -->
+<div class="content">
+  ${sectionsHtml}
+</div>
+
+<!-- FOOTER -->
+<div class="doc-footer">
+  <div class="doc-footer-line"></div>
+  <div class="doc-footer-text"><span class="doc-footer-brand">Checklist Fácil</span> · Líder em Checklists na América Latina · checklistfacil.com.br</div>
+</div>
+
+<script>
+// ── SPARKLES (canvas particles) ──
+(function(){
+  const canvas=document.getElementById('sparkles');
+  const ctx=canvas.getContext('2d');
+  const cover=document.getElementById('cover');
+  function resize(){canvas.width=cover.offsetWidth;canvas.height=cover.offsetHeight}
+  resize();
+  window.addEventListener('resize',resize,{passive:true});
+  const N=180,P=[];
+  for(let i=0;i<N;i++){
+    P.push({
+      x:Math.random()*canvas.width,
+      y:Math.random()*canvas.height,
+      r:Math.random()*1.4+.3,
+      op:Math.random()*.5+.08,
+      vx:(Math.random()-.5)*.28,
+      vy:(Math.random()-.5)*.28,
+      od:(Math.random()<.5?1:-1),
+      os:Math.random()*.007+.003,
+      minOp:.04,
+      maxOp:Math.random()*.5+.15
+    });
+  }
+  function draw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    for(const p of P){
+      p.x+=p.vx;p.y+=p.vy;
+      p.op+=p.os*p.od;
+      if(p.op>=p.maxOp||p.op<=p.minOp)p.od*=-1;
+      if(p.x<0)p.x=canvas.width;else if(p.x>canvas.width)p.x=0;
+      if(p.y<0)p.y=canvas.height;else if(p.y>canvas.height)p.y=0;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(255,255,255,'+p.op.toFixed(3)+')';
+      ctx.fill();
+    }
+    requestAnimationFrame(draw);
+  }
+  draw();
+})();
+
+// ── SCROLL REVEAL ──
+(function(){
+  const io=new IntersectionObserver(entries=>{
+    entries.forEach(e=>{if(e.intersectionRatio>.08){e.target.classList.add('in');io.unobserve(e.target)}});
+  },{threshold:[0,.08]});
+  document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
+})();
+</script>
 </body>
 </html>`;
 }
