@@ -1,0 +1,6 @@
+{
+  "name": "Gerador de Materiais Comerciais",
+  "description": "Ferramenta comercial para gerar propostas, business cases e apresentações em HTML com o design Checklist Fácil.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
