@@ -519,12 +519,23 @@ export function compileCustomMaterialHtml(content: CustomMaterialContent): strin
   const accentRgb = accentRgbMap[content.accentColor] || "0,172,105";
   const date = new Date().toLocaleDateString("pt-BR", { day: "2-digit", month: "long", year: "numeric" });
 
+  const isCustom = content.mode === "personalizado" && !!content.customCss?.trim();
+
   const logoHtml = content.logoBase64
     ? `<div class="cover-logo"><img src="${content.logoBase64}" alt="Logo ${content.clientName}" /></div>`
     : "";
 
-  const customStyleBlock = content.customCss?.trim()
-    ? `<style id="custom-overrides">\n${content.customCss}\n</style>`
+  // Separate <style> and <script> blocks from the interpreted code
+  const rawCustom = content.customCss?.trim() || "";
+  const customStyleMatch = rawCustom.match(/<style[^>]*>([\s\S]*?)<\/style>/gi) || [];
+  const customScriptMatch = rawCustom.match(/<script[^>]*>([\s\S]*?)<\/script>/gi) || [];
+  // If no tags found, treat the whole block as CSS (most common paste scenario)
+  const hasAnyTags = rawCustom.includes("<style") || rawCustom.includes("<script");
+  const customStyleBlock = isCustom
+    ? (customStyleMatch.length ? customStyleMatch.join("\n") : (!hasAnyTags ? `<style>${rawCustom}</style>` : ""))
+    : "";
+  const customScriptBlock = isCustom
+    ? (customScriptMatch.length ? customScriptMatch.join("\n") : "")
     : "";
 
   const sectionsHtml = content.sections.map((sec, i) => `
@@ -553,26 +564,26 @@ html{scroll-behavior:smooth}
 body{font-family:'Sora',sans-serif;background:var(--surface);color:var(--ink);min-height:100vh}
 
 /* ── COVER ── */
-.cover{position:relative;min-height:72vh;background:#080C10;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:clamp(40px,7vw,80px) clamp(24px,6vw,72px)}
+.cover{position:relative;min-height:80vh;background:#050A0D;overflow:hidden;display:flex;flex-direction:column;justify-content:flex-end;padding:clamp(48px,8vw,96px) clamp(28px,6vw,80px)}
 
-/* Canvas sparkles */
-#sparkles{position:absolute;inset:0;width:100%;height:100%;z-index:0;pointer-events:none}
+/* Canvas sparkles — hidden in custom mode */
+#sparkles{position:absolute;inset:0;width:100%;height:100%;z-index:2;pointer-events:none;${isCustom ? "display:none" : ""}}
 
-/* Gradient blobs */
-.blobs{position:absolute;inset:0;overflow:hidden;filter:blur(72px);z-index:0;pointer-events:none}
-.blob{position:absolute;border-radius:50%;opacity:.28}
-.blob-1{width:clamp(300px,45vw,600px);height:clamp(300px,45vw,600px);background:${accent};top:-15%;right:-10%;animation:b1 18s ease-in-out infinite}
-.blob-2{width:clamp(200px,30vw,420px);height:clamp(200px,30vw,420px);background:#469DE2;bottom:-10%;left:5%;animation:b2 22s ease-in-out infinite}
-.blob-3{width:clamp(150px,20vw,300px);height:clamp(150px,20vw,300px);background:${accent};top:30%;left:40%;animation:b3 15s ease-in-out infinite;opacity:.15}
+/* Gradient blobs — hidden in custom mode */
+.blobs{position:absolute;inset:0;overflow:hidden;filter:blur(56px);z-index:1;pointer-events:none;${isCustom ? "display:none" : ""}}
+.blob{position:absolute;border-radius:50%}
+.blob-1{width:clamp(360px,55vw,720px);height:clamp(360px,55vw,720px);background:radial-gradient(circle at 40% 40%,${accent} 0%,transparent 70%);opacity:.55;top:-20%;right:-15%;animation:b1 16s ease-in-out infinite}
+.blob-2{width:clamp(280px,38vw,520px);height:clamp(280px,38vw,520px);background:radial-gradient(circle at 60% 60%,#1a6bb5 0%,transparent 70%);opacity:.45;bottom:-15%;left:-5%;animation:b2 20s ease-in-out infinite}
+.blob-3{width:clamp(180px,24vw,340px);height:clamp(180px,24vw,340px);background:radial-gradient(circle at 50% 50%,${accent} 0%,transparent 70%);opacity:.3;top:25%;left:38%;animation:b3 13s ease-in-out infinite}
 
-@keyframes b1{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(-60px,40px) scale(1.08)}50%{transform:translate(40px,-50px) scale(.94)}75%{transform:translate(70px,30px) scale(1.04)}}
-@keyframes b2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(80px,-60px) scale(1.1)}66%{transform:translate(-50px,40px) scale(.9)}}
-@keyframes b3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-80px,60px) scale(1.15)}}
+@keyframes b1{0%,100%{transform:translate(0,0) scale(1)}25%{transform:translate(-80px,50px) scale(1.1)}50%{transform:translate(50px,-60px) scale(.92)}75%{transform:translate(90px,35px) scale(1.06)}}
+@keyframes b2{0%,100%{transform:translate(0,0) scale(1)}33%{transform:translate(100px,-70px) scale(1.12)}66%{transform:translate(-60px,50px) scale(.88)}}
+@keyframes b3{0%,100%{transform:translate(0,0) scale(1)}50%{transform:translate(-90px,70px) scale(1.18)}}
 
-/* Noise overlay */
-.cover::after{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.04'/%3E%3C/svg%3E");opacity:.4;z-index:1;pointer-events:none}
+/* Noise overlay — always on */
+.cover::after{content:'';position:absolute;inset:0;background-image:url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.7' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.05'/%3E%3C/svg%3E");opacity:.5;z-index:3;pointer-events:none}
 
-.cover-inner{position:relative;z-index:2;max-width:800px}
+.cover-inner{position:relative;z-index:4;max-width:800px}
 .cover-eyebrow{display:inline-flex;align-items:center;gap:8px;background:rgba(${accentRgb},.12);border:1px solid rgba(${accentRgb},.3);color:${accent};font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;padding:7px 16px;border-radius:999px;margin-bottom:28px}
 .cover-eyebrow-dot{width:5px;height:5px;border-radius:50%;background:${accent};animation:pulse 2s ease-in-out infinite}
 @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.4;transform:scale(.7)}}
@@ -614,8 +625,8 @@ body{font-family:'Sora',sans-serif;background:var(--surface);color:var(--ink);mi
 @media(prefers-reduced-motion:reduce){.reveal{opacity:1;transform:none;transition:none}.blob,.cover-eyebrow-dot{animation:none}}
 
 /* ── LOGO ── */
-.cover-logo{margin-bottom:24px}
-.cover-logo img{height:40px;width:auto;object-fit:contain;filter:brightness(0) invert(1);opacity:.85}
+.cover-logo{margin-bottom:28px;display:inline-block}
+.cover-logo img{height:44px;width:auto;max-width:180px;object-fit:contain;display:block;filter:drop-shadow(0 0 12px rgba(255,255,255,.25))}
 
 /* ── CUSTOM EFFECT CONTAINER ── */
 #cover-effect-container{position:absolute;inset:0;overflow:hidden;pointer-events:none;z-index:1}
@@ -623,7 +634,7 @@ body{font-family:'Sora',sans-serif;background:var(--surface);color:var(--ink);mi
 
 @media(max-width:600px){.cover{min-height:60vh}.sec{padding:28px 24px}.sec-h{font-size:16px}}
 </style>
-${customStyleBlock}
+${customStyleBlock || ""}
 </head>
 <body>
 
@@ -712,6 +723,7 @@ ${customStyleBlock}
   document.querySelectorAll('.reveal').forEach(el=>io.observe(el));
 })();
 </script>
+${customScriptBlock}
 </body>
 </html>`;
 }
